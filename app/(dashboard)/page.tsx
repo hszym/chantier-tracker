@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { HardHat, Receipt, TrendingUp, Users, Clock, Target } from "lucide-react"
+import { HardHat, Receipt, TrendingUp, Users, Clock, Target, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 
 const PROJECT_ID = "11111111-1111-1111-1111-111111111111"
@@ -12,6 +12,12 @@ type RecentReceipt = {
   total_amount: number
   stores: { name: string } | null
   people: { name: string } | null
+}
+
+type StoreSpend = {
+  store_id: string | null
+  store_name: string | null
+  total: number
 }
 
 type BudgetEstimate = {
@@ -33,6 +39,7 @@ export default async function DashboardPage() {
     { data: recentReceipts },
     { count: pendingCount },
     { data: budgetData },
+    { data: storeSpendRaw },
   ] = await Promise.all([
     supabase.from("project_total_cost").select("*").single(),
     supabase.from("spend_by_lot_project").select("lot_id, lot_name, total_spent").order("total_spent", { ascending: false }),
@@ -49,6 +56,10 @@ export default async function DashboardPage() {
       .select("lot_id, estimated_amount, description, work_lots(name, color)")
       .eq("project_id", PROJECT_ID)
       .order("estimated_amount", { ascending: false }) as unknown as Promise<{ data: BudgetEstimate[] | null }>,
+    supabase
+      .from("receipts")
+      .select("store_id, total_amount, stores(name)")
+      .neq("status", "archived") as unknown as Promise<{ data: { store_id: string | null; total_amount: number; stores: { name: string } | null }[] | null }>,
   ])
 
   const lots = (lotData ?? []).filter((l) => l.lot_name && l.total_spent > 0)
@@ -64,6 +75,21 @@ export default async function DashboardPage() {
   }))
   const totalEstimated = budgetItems.reduce((s, b) => s + b.estimated, 0)
   const totalSpentOnEstimated = budgetItems.reduce((s, b) => s + b.spent, 0)
+
+  const storeSpendMap = new Map<string, StoreSpend>()
+  for (const r of storeSpendRaw ?? []) {
+    const key = r.store_id ?? "__none__"
+    const existing = storeSpendMap.get(key)
+    if (existing) {
+      existing.total += r.total_amount
+    } else {
+      storeSpendMap.set(key, { store_id: r.store_id, store_name: r.stores?.name ?? null, total: r.total_amount })
+    }
+  }
+  const storeSpend = Array.from(storeSpendMap.values())
+    .filter((s) => s.total > 0)
+    .sort((a, b) => b.total - a.total)
+  const maxStoreSpend = storeSpend[0]?.total ?? 1
 
   return (
     <div className="space-y-6">
@@ -188,6 +214,40 @@ export default async function DashboardPage() {
           </Card>
         )}
       </div>
+
+      {/* Dépenses par magasin */}
+      {storeSpend.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              Dépenses par magasin
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {storeSpend.slice(0, 10).map((s) => (
+              <div key={s.store_id ?? "unknown"} className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="truncate max-w-[65%] text-muted-foreground">{s.store_name ?? "Inconnu"}</span>
+                  <span className="tabular-nums font-medium">{formatCurrency(s.total)}</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ width: `${(s.total / maxStoreSpend) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {storeSpend.length > 10 && (
+              <p className="text-xs text-muted-foreground pt-1">+ {storeSpend.length - 10} autres magasins</p>
+            )}
+            <Link href="/receipts" className="block text-xs text-primary hover:underline pt-1">
+              Voir toutes les factures →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Budget prévisionnel */}
       {budgetItems.length > 0 && (
