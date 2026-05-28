@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { HardHat, LayoutDashboard, Receipt } from "lucide-react"
+import { HardHat, LayoutDashboard, Receipt, Users } from "lucide-react"
 import Link from "next/link"
 
 export default async function DashboardLayout({
@@ -37,6 +37,13 @@ export default async function DashboardLayout({
             >
               <Receipt className="h-4 w-4" />
               Factures
+            </Link>
+            <Link
+              href="/workers"
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Users className="h-4 w-4" />
+              Ouvriers
             </Link>
           </nav>
           <div className="ml-auto text-xs text-muted-foreground">{user.email}</div>
