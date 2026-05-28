@@ -1,73 +1,192 @@
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/utils"
-import { Receipt, HardHat, TrendingUp } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatCurrency, formatDate } from "@/lib/utils"
+import { HardHat, Receipt, TrendingUp, Users, Clock } from "lucide-react"
 import Link from "next/link"
+
+type RecentReceipt = {
+  id: string
+  receipt_date: string
+  total_amount: number
+  stores: { name: string } | null
+  people: { name: string } | null
+}
+
+export const metadata = { title: "Dashboard — Chantier Tracker" }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  const [{ data: costData }, { count: receiptsCount }] = await Promise.all([
+  const [
+    { data: costData },
+    { data: lotData },
+    { data: workerData },
+    { data: recentReceipts },
+    { count: pendingCount },
+  ] = await Promise.all([
     supabase.from("project_total_cost").select("*").single(),
-    supabase.from("receipts").select("*", { count: "exact", head: true }).neq("status", "archived"),
+    supabase.from("spend_by_lot_project").select("lot_id, lot_name, total_spent").order("total_spent", { ascending: false }),
+    supabase.from("worker_balances").select("worker_name, balance_due").gt("balance_due", 0).order("balance_due", { ascending: false }),
+    supabase
+      .from("receipts")
+      .select("id, receipt_date, total_amount, stores(name), people!paid_by(name)")
+      .neq("status", "archived")
+      .order("receipt_date", { ascending: false })
+      .limit(5) as unknown as Promise<{ data: RecentReceipt[] | null }>,
+    supabase.from("receipts").select("*", { count: "exact", head: true }).eq("status", "pending"),
   ])
+
+  const lots = (lotData ?? []).filter((l) => l.lot_name && l.total_spent > 0)
+  const maxLotSpend = lots[0]?.total_spent ?? 1
+  const totalWorkersDue = (workerData ?? []).reduce((s, w) => s + w.balance_due, 0)
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">La Turbie</h1>
-        <p className="text-muted-foreground">Rénovation maison principale</p>
+        <p className="text-muted-foreground text-sm">Rénovation maison principale</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4" /> Coût total
-            </CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCurrency(costData?.total_cost ?? 0)}
-            </CardTitle>
+          <CardHeader className="pb-1 pt-4 px-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5" /> Coût total
+            </div>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Matériaux + main d&apos;œuvre
+          <CardContent className="px-4 pb-4">
+            <div className="text-xl font-bold tabular-nums">{formatCurrency(costData?.total_cost ?? 0)}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Matériaux + MO</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5">
-              <Receipt className="h-4 w-4" /> Matériaux
-            </CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCurrency(costData?.materials_cost ?? 0)}
-            </CardTitle>
+          <CardHeader className="pb-1 pt-4 px-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Receipt className="h-3.5 w-3.5" /> Matériaux
+            </div>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {receiptsCount ?? 0} factures importées
+          <CardContent className="px-4 pb-4">
+            <div className="text-xl font-bold tabular-nums">{formatCurrency(costData?.materials_cost ?? 0)}</div>
+            <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+              {pendingCount ? (
+                <span className="text-yellow-600 font-medium">{pendingCount} en attente</span>
+              ) : (
+                "Toutes validées"
+              )}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5">
-              <HardHat className="h-4 w-4" /> Main d&apos;œuvre
-            </CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCurrency(costData?.labor_cost ?? 0)}
-            </CardTitle>
+          <CardHeader className="pb-1 pt-4 px-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <HardHat className="h-3.5 w-3.5" /> Main d&apos;œuvre
+            </div>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Workers + artisans
+          <CardContent className="px-4 pb-4">
+            <div className="text-xl font-bold tabular-nums">{formatCurrency(costData?.labor_cost ?? 0)}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Journées travaillées</div>
+          </CardContent>
+        </Card>
+
+        <Card className={totalWorkersDue > 0 ? "border-orange-200 bg-orange-50" : ""}>
+          <CardHeader className="pb-1 pt-4 px-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5" /> Dû aux ouvriers
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className={`text-xl font-bold tabular-nums ${totalWorkersDue > 0 ? "text-orange-700" : "text-green-700"}`}>
+              {formatCurrency(totalWorkersDue)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {totalWorkersDue > 0 ? `${workerData?.length} ouvrier${(workerData?.length ?? 0) > 1 ? "s" : ""}` : "Tout est réglé"}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="text-sm text-muted-foreground">
-        <Link href="/receipts" className="text-primary hover:underline">
-          Voir toutes les factures →
-        </Link>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Spending by lot */}
+        {lots.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Dépenses par lot</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              {lots.slice(0, 8).map((lot) => (
+                <div key={lot.lot_id ?? "uncategorized"} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="truncate max-w-[65%] text-muted-foreground">{lot.lot_name ?? "Non catégorisé"}</span>
+                    <span className="tabular-nums font-medium">{formatCurrency(lot.total_spent)}</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(lot.total_spent / maxLotSpend) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {lots.length > 8 && (
+                <p className="text-xs text-muted-foreground pt-1">+ {lots.length - 8} autres lots</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Workers due */}
+        {(workerData?.length ?? 0) > 0 && (
+          <Card className="border-orange-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-orange-500" />
+                Paiements en attente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {workerData?.map((w) => (
+                <div key={w.worker_name} className="flex justify-between items-center text-sm">
+                  <span>{w.worker_name}</span>
+                  <span className="tabular-nums font-semibold text-orange-700">{formatCurrency(w.balance_due)}</span>
+                </div>
+              ))}
+              <Link href="/workers" className="block text-xs text-primary hover:underline pt-1">
+                Gérer les paiements →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Recent receipts */}
+      {(recentReceipts?.length ?? 0) > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Dernières factures</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y">
+            {recentReceipts?.map((r) => (
+              <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                <div>
+                  <div className="text-sm font-medium">{r.stores?.name ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatDate(r.receipt_date)} · {r.people?.name ?? "—"}
+                  </div>
+                </div>
+                <span className="tabular-nums font-semibold text-sm">{formatCurrency(r.total_amount)}</span>
+              </div>
+            ))}
+          </CardContent>
+          <div className="px-6 pb-4">
+            <Link href="/receipts" className="text-xs text-primary hover:underline">
+              Voir toutes les factures →
+            </Link>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
