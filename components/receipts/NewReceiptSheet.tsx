@@ -84,14 +84,14 @@ export default function NewReceiptSheet() {
     // Run OCR
     setOcrLoading(true)
     try {
-      const base64 = await fileToBase64(file)
+      const { base64, mimeType: compressedMime } = await compressAndEncode(file)
       const res = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+        body: JSON.stringify({ imageBase64: base64, mimeType: compressedMime }),
       })
       const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error ?? `Erreur ${res.status}`)
 
       setForm((f) => ({
         ...f,
@@ -101,7 +101,7 @@ export default function NewReceiptSheet() {
         payment_method: data.payment_method ?? f.payment_method,
       }))
     } catch (e) {
-      setOcrError("OCR échoué — remplissez les champs manuellement")
+      setOcrError(`OCR échoué (${e instanceof Error ? e.message : "erreur inconnue"}) — remplissez manuellement`)
     } finally {
       setOcrLoading(false)
     }
@@ -367,14 +367,32 @@ export default function NewReceiptSheet() {
   )
 }
 
-async function fileToBase64(file: File): Promise<string> {
+async function compressAndEncode(file: File): Promise<{ base64: string; mimeType: string }> {
+  const bitmap = await createImageBitmap(file)
+  const MAX = 1500
+  const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height))
+  const w = Math.round(bitmap.width * scale)
+  const h = Math.round(bitmap.height * scale)
+
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, w, h)
+
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(",")[1])
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) { reject(new Error("Canvas toBlob failed")); return }
+        const reader = new FileReader()
+        reader.onload = () => resolve({
+          base64: (reader.result as string).split(",")[1],
+          mimeType: "image/jpeg",
+        })
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      },
+      "image/jpeg",
+      0.85
+    )
   })
 }
