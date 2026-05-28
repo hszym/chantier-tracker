@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import EditReceiptSheet, { type ReceiptForEdit } from "./EditReceiptSheet"
 
 const PAGE_SIZE = 50
 
@@ -20,6 +21,11 @@ type Receipt = {
   total_amount: number
   status: string
   notes: string | null
+  store_id: string | null
+  paid_by: string | null
+  phase_id: string | null
+  photo_url: string | null
+  payment_method: string | null
   stores: { name: string } | null
   people: { name: string } | null
   phases: { name: string } | null
@@ -48,6 +54,7 @@ export default function ReceiptsTable() {
   const [totalAmount, setTotalAmount] = useState(0)
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<ReceiptForEdit | null>(null)
 
   const [phases, setPhases] = useState<Phase[]>([])
   const [people, setPeople] = useState<Person[]>([])
@@ -81,7 +88,7 @@ export default function ReceiptsTable() {
     let query = supabase
       .from("receipts")
       .select(
-        `id, receipt_date, total_amount, status, notes,
+        `id, receipt_date, total_amount, status, notes, store_id, paid_by, phase_id, photo_url, payment_method,
          stores(name),
          people!paid_by(name),
          phases(name),
@@ -128,6 +135,22 @@ export default function ReceiptsTable() {
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((f) => ({ ...f, [key]: value }))
     setPage(0)
+  }
+
+  function openEdit(r: Receipt) {
+    setEditing({
+      id: r.id,
+      receipt_date: r.receipt_date,
+      total_amount: r.total_amount,
+      status: r.status,
+      notes: r.notes,
+      photo_url: r.photo_url,
+      payment_method: r.payment_method,
+      store_id: r.store_id,
+      store_name: r.stores?.name ?? null,
+      paid_by: r.paid_by,
+      phase_id: r.phase_id,
+    })
   }
 
   function getLotInfo(receipt: Receipt) {
@@ -211,7 +234,7 @@ export default function ReceiptsTable() {
         ) : receipts.map((r) => {
           const lot = getLotInfo(r)
           return (
-            <div key={r.id} className="bg-white rounded-xl border px-4 py-3 space-y-1.5">
+            <div key={r.id} className="bg-white rounded-xl border px-4 py-3 space-y-1.5 cursor-pointer active:bg-muted/30" onClick={() => openEdit(r)}>
               <div className="flex items-start justify-between gap-2">
                 <span className="font-semibold text-base">{r.stores?.name ?? r.notes ?? "—"}</span>
                 <span className="tabular-nums font-bold text-base shrink-0">{formatCurrency(r.total_amount)}</span>
@@ -272,7 +295,7 @@ export default function ReceiptsTable() {
               receipts.map((r) => {
                 const lot = getLotInfo(r)
                 return (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEdit(r)}>
                     <TableCell className="tabular-nums text-sm">{formatDate(r.receipt_date)}</TableCell>
                     <TableCell className="font-medium">{r.stores?.name ?? r.notes ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{formatCurrency(r.total_amount)}</TableCell>
@@ -302,6 +325,12 @@ export default function ReceiptsTable() {
           </TableBody>
         </Table>
       </div>
+
+      <EditReceiptSheet
+        receipt={editing}
+        onClose={() => setEditing(null)}
+        onSaved={loadReceipts}
+      />
 
       {/* Pagination */}
       {pageCount > 1 && (
