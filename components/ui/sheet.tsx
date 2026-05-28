@@ -13,14 +13,8 @@ interface SheetProps {
 
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
+    document.body.style.overflow = open ? "hidden" : ""
+    return () => { document.body.style.overflow = "" }
   }, [open])
 
   useEffect(() => {
@@ -33,6 +27,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 
   return (
     <>
+      {/* Backdrop */}
       <div
         className={cn(
           "fixed inset-0 bg-black/40 z-40 transition-opacity duration-300",
@@ -40,23 +35,39 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
         )}
         onClick={onClose}
       />
+
+      {/* Panel — slides from bottom on mobile, from right on desktop */}
       <div
         className={cn(
-          "fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-50 flex flex-col transition-transform duration-300",
-          open ? "translate-x-0" : "translate-x-full"
+          "fixed z-50 bg-white shadow-xl flex flex-col transition-transform duration-300",
+          // Mobile: bottom sheet
+          "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-2xl",
+          "md:inset-y-0 md:right-0 md:left-auto md:w-full md:max-w-md md:max-h-none md:rounded-none",
+          // Animation
+          open
+            ? "translate-y-0 md:translate-y-0 md:translate-x-0"
+            : "translate-y-full md:translate-y-0 md:translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+        {/* Drag handle — mobile only */}
+        <div className="md:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
           <h2 className="font-semibold text-base">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
+            className="p-1.5 rounded-full hover:bg-muted transition-colors"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto p-5 pb-safe">{children}</div>
       </div>
     </>
   )
