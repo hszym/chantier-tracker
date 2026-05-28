@@ -1,5 +1,4 @@
 "use client"
-
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +8,7 @@ import { HardHat } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,14 +17,17 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) {
-      setError(error.message)
+    if (password) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setError(error.message)
+      else window.location.href = "/"
     } else {
-      setSent(true)
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (error) setError(error.message)
+      else setSent(true)
     }
     setLoading(false)
   }
@@ -42,21 +45,18 @@ export default function LoginPage() {
         <CardContent>
           {sent ? (
             <p className="text-center text-sm text-muted-foreground">
-              Lien de connexion envoyé à <strong>{email}</strong>. Vérifiez votre boîte mail.
+              Lien envoyé à <strong>{email}</strong>. Vérifiez votre boîte mail.
             </p>
           ) : (
             <div className="space-y-3">
-              <Input
-                type="email"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                disabled={loading}
-              />
+              <Input type="email" placeholder="votre@email.com" value={email}
+                onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+              <Input type="password" placeholder="Mot de passe (optionnel)" value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()} disabled={loading} />
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button className="w-full" onClick={handleLogin} disabled={loading || !email}>
-                {loading ? "Envoi…" : "Recevoir un lien magique"}
+                {loading ? "Connexion…" : password ? "Se connecter" : "Recevoir un lien magique"}
               </Button>
             </div>
           )}
