@@ -2,13 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Receipt, Users } from "lucide-react"
+import { LayoutDashboard, Receipt, Users, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const links = [
-  { href: "/",         label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/receipts", label: "Factures",         icon: Receipt },
-  { href: "/workers",  label: "Ouvriers",         icon: Users },
+  { href: "/",          label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/receipts",  label: "Factures",   icon: Receipt },
+  { href: "/materiaux", label: "Matériaux",  icon: Package },
+  { href: "/workers",   label: "Ouvriers",   icon: Users },
 ]
 
 export function DesktopNav() {
@@ -47,7 +48,7 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] transition-colors",
+                "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] transition-colors",
                 active ? "text-primary font-medium" : "text-muted-foreground"
               )}
             >
