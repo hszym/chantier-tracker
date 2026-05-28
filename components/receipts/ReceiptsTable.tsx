@@ -326,11 +326,13 @@ export default function ReceiptsTable() {
         </Table>
       </div>
 
-      <EditReceiptSheet
-        receipt={editing}
-        onClose={() => setEditing(null)}
-        onSaved={loadReceipts}
-      />
+      {editing && (
+        <EditReceiptSheet
+          receipt={editing}
+          onClose={() => setEditing(null)}
+          onSaved={loadReceipts}
+        />
+      )}
 
       {/* Pagination */}
       {pageCount > 1 && (

@@ -163,7 +163,7 @@ export default function EditReceiptSheet({ receipt, onClose, onSaved }: Props) {
   }
 
   return (
-    <Sheet open={!!receipt} onClose={onClose} title="Modifier la facture">
+    <Sheet open={true} onClose={onClose} title="Modifier la facture">
       <div className="space-y-5">
         {/* Photo */}
         <div className="space-y-2">
