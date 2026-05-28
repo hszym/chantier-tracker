@@ -48,12 +48,13 @@ Réponds UNIQUEMENT avec le JSON, sans explication ni markdown.
     ],
   })
 
-  const text = message.content[0].type === "text" ? message.content[0].text.trim() : ""
+  const raw = message.content[0].type === "text" ? message.content[0].text.trim() : ""
+  const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
 
   try {
     const data = JSON.parse(text)
     return Response.json(data)
   } catch {
-    return Response.json({ error: "Failed to parse OCR response", raw: text }, { status: 422 })
+    return Response.json({ error: "Failed to parse OCR response", raw }, { status: 422 })
   }
 }
