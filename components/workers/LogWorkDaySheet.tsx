@@ -105,21 +105,21 @@ export function LogWorkDaySheet({ open, onClose }: Props) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Heures *</label>
             <Input
-              type="number" step="0.5" min="0.5" max="24"
+              type="text"
+              inputMode="decimal"
               placeholder="8"
               value={hours}
-              onChange={(e) => setHours(e.target.value)}
-              required
+              onChange={(e) => setHours(e.target.value.replace(",", "."))}
             />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Taux horaire (€) *</label>
             <Input
-              type="number" step="0.5" min="0"
+              type="text"
+              inputMode="decimal"
               placeholder="15"
               value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              required
+              onChange={(e) => setRate(e.target.value.replace(",", "."))}
             />
           </div>
         </div>

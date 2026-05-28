@@ -135,10 +135,11 @@ export function WorkerFormSheet({ open, onClose, worker }: Props) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Taux horaire (€)</label>
             <Input
-              type="number" step="0.5" min="0"
+              type="text"
+              inputMode="decimal"
               placeholder="15"
               value={form.default_hourly_rate}
-              onChange={(e) => set("default_hourly_rate", e.target.value)}
+              onChange={(e) => set("default_hourly_rate", e.target.value.replace(",", "."))}
             />
           </div>
         </div>
