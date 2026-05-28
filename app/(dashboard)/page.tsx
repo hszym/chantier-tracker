@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { HardHat, Receipt, TrendingUp, Users, Clock } from "lucide-react"
+import { HardHat, Receipt, TrendingUp, Users, Clock, Target } from "lucide-react"
 import Link from "next/link"
+
+const PROJECT_ID = "11111111-1111-1111-1111-111111111111"
 
 type RecentReceipt = {
   id: string
@@ -10,6 +12,13 @@ type RecentReceipt = {
   total_amount: number
   stores: { name: string } | null
   people: { name: string } | null
+}
+
+type BudgetEstimate = {
+  lot_id: string | null
+  estimated_amount: number
+  description: string | null
+  work_lots: { name: string; color: string | null } | null
 }
 
 export const metadata = { title: "Dashboard — Chantier Tracker" }
@@ -23,6 +32,7 @@ export default async function DashboardPage() {
     { data: workerData },
     { data: recentReceipts },
     { count: pendingCount },
+    { data: budgetData },
   ] = await Promise.all([
     supabase.from("project_total_cost").select("*").single(),
     supabase.from("spend_by_lot_project").select("lot_id, lot_name, total_spent").order("total_spent", { ascending: false }),
@@ -34,11 +44,26 @@ export default async function DashboardPage() {
       .order("receipt_date", { ascending: false })
       .limit(5) as unknown as Promise<{ data: RecentReceipt[] | null }>,
     supabase.from("receipts").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase
+      .from("budget_estimates")
+      .select("lot_id, estimated_amount, description, work_lots(name, color)")
+      .eq("project_id", PROJECT_ID)
+      .order("estimated_amount", { ascending: false }) as unknown as Promise<{ data: BudgetEstimate[] | null }>,
   ])
 
   const lots = (lotData ?? []).filter((l) => l.lot_name && l.total_spent > 0)
   const maxLotSpend = lots[0]?.total_spent ?? 1
   const totalWorkersDue = (workerData ?? []).reduce((s, w) => s + w.balance_due, 0)
+
+  const spendByLotId = Object.fromEntries((lotData ?? []).map((l) => [l.lot_id, l.total_spent]))
+  const budgetItems = (budgetData ?? []).map((b) => ({
+    label: b.description ?? b.work_lots?.name ?? "—",
+    color: b.work_lots?.color ?? null,
+    estimated: b.estimated_amount,
+    spent: b.lot_id ? (spendByLotId[b.lot_id] ?? 0) : 0,
+  }))
+  const totalEstimated = budgetItems.reduce((s, b) => s + b.estimated, 0)
+  const totalSpentOnEstimated = budgetItems.reduce((s, b) => s + b.spent, 0)
 
   return (
     <div className="space-y-6">
@@ -133,6 +158,9 @@ export default async function DashboardPage() {
               {lots.length > 8 && (
                 <p className="text-xs text-muted-foreground pt-1">+ {lots.length - 8} autres lots</p>
               )}
+              <Link href="/materiaux" className="block text-xs text-primary hover:underline pt-1">
+                Voir le détail matériaux →
+              </Link>
             </CardContent>
           </Card>
         )}
@@ -160,6 +188,48 @@ export default async function DashboardPage() {
           </Card>
         )}
       </div>
+
+      {/* Budget prévisionnel */}
+      {budgetItems.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                Budget prévisionnel
+              </CardTitle>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {formatCurrency(totalSpentOnEstimated)} / {formatCurrency(totalEstimated)}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {budgetItems.map((b, i) => {
+              const pct = b.estimated > 0 ? Math.min((b.spent / b.estimated) * 100, 100) : 0
+              const over = b.spent > b.estimated && b.spent > 0
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="truncate max-w-[55%] text-muted-foreground">{b.label}</span>
+                    <div className="flex items-center gap-1.5 tabular-nums shrink-0">
+                      <span className={over ? "text-red-600 font-medium" : "font-medium"}>
+                        {formatCurrency(b.spent)}
+                      </span>
+                      <span className="text-muted-foreground">/ {formatCurrency(b.estimated)}</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${over ? "bg-red-500" : pct > 80 ? "bg-orange-400" : "bg-emerald-500"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent receipts */}
       {(recentReceipts?.length ?? 0) > 0 && (
