@@ -79,18 +79,21 @@ export default function WorkersTable() {
   return (
     <div className="space-y-4">
       {/* Actions */}
-      <div className="flex gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 justify-end">
         <Button variant="outline" size="sm" onClick={openCreate}>
           <UserPlus className="h-4 w-4 mr-1.5" />
-          Ajouter un ouvrier
+          <span className="hidden sm:inline">Ajouter un ouvrier</span>
+          <span className="sm:hidden">Ajouter</span>
         </Button>
         <Button variant="outline" size="sm" onClick={() => setLogOpen(true)}>
           <Plus className="h-4 w-4 mr-1.5" />
-          Saisir une journée
+          <span className="hidden sm:inline">Saisir une journée</span>
+          <span className="sm:hidden">Journée</span>
         </Button>
         <Button size="sm" onClick={() => { setSelectedWorker(undefined); setPayOpen(true) }}>
           <Wallet className="h-4 w-4 mr-1.5" />
-          Enregistrer un paiement
+          <span className="hidden sm:inline">Enregistrer un paiement</span>
+          <span className="sm:hidden">Paiement</span>
         </Button>
       </div>
 
@@ -101,8 +104,60 @@ export default function WorkersTable() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-lg border bg-white">
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Chargement…
+          </div>
+        ) : balances.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">Aucun ouvrier trouvé</div>
+        ) : balances.map((b) => {
+          const workerDetail = workers.find((w) => w.id === b.worker_id)
+          return (
+            <div key={b.worker_id} className={`bg-white rounded-xl border px-4 py-3 space-y-2 ${!b.is_active ? "opacity-50" : ""}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="font-semibold">{b.worker_name}</span>
+                  {workerDetail?.speciality && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">{workerDetail.speciality}</span>
+                  )}
+                  {workerDetail?.default_hourly_rate != null && (
+                    <div className="text-xs text-muted-foreground">{workerDetail.default_hourly_rate} €/h</div>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className={`text-base font-bold tabular-nums ${b.balance_due > 0 ? "text-orange-600" : b.balance_due < 0 ? "text-blue-600" : "text-green-600"}`}>
+                    {formatCurrency(b.balance_due)}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">solde dû</div>
+                </div>
+              </div>
+              <div className="flex gap-3 text-xs text-muted-foreground">
+                <span>{b.days_worked}j · {b.total_hours}h</span>
+                <span>gagné {formatCurrency(b.total_earned)}</span>
+                <span>payé {formatCurrency(b.total_paid)}</span>
+              </div>
+              {b.last_work_date && (
+                <div className="text-xs text-muted-foreground">Dernière journée : {formatDate(b.last_work_date)}</div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(b.worker_id)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />Modifier
+                </Button>
+                {b.balance_due > 0 && (
+                  <Button size="sm" className="flex-1" onClick={() => openPay(b.worker_id)}>
+                    Payer
+                  </Button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border bg-white">
         <Table>
           <TableHeader>
             <TableRow>
@@ -142,13 +197,9 @@ export default function WorkersTable() {
                       {!b.is_active && <span className="ml-2 text-xs text-muted-foreground">(inactif)</span>}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground tabular-nums">
-                      {workerDetail?.default_hourly_rate != null
-                        ? `${workerDetail.default_hourly_rate} €/h`
-                        : "—"}
+                      {workerDetail?.default_hourly_rate != null ? `${workerDetail.default_hourly_rate} €/h` : "—"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                      {b.days_worked}j / {b.total_hours}h
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-sm text-muted-foreground">{b.days_worked}j / {b.total_hours}h</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(b.total_earned)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(b.total_paid)}</TableCell>
                     <TableCell className="text-right tabular-nums font-semibold">
@@ -156,18 +207,14 @@ export default function WorkersTable() {
                         {formatCurrency(b.balance_due)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(b.last_work_date)}
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(b.last_work_date)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="ghost" onClick={() => openEdit(b.worker_id)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         {b.balance_due > 0 && (
-                          <Button size="sm" variant="outline" onClick={() => openPay(b.worker_id)}>
-                            Payer
-                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openPay(b.worker_id)}>Payer</Button>
                         )}
                       </div>
                     </TableCell>

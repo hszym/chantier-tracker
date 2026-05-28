@@ -140,11 +140,11 @@ export default function ReceiptsTable() {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="min-w-[180px]">
+      {/* Filters — horizontal scroll on mobile */}
+      <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0">
+        <div className="shrink-0 w-44 md:w-auto md:min-w-[180px]">
           <Select value={filters.phase} onValueChange={(v) => updateFilter("phase", v)}>
-            <SelectTrigger><SelectValue placeholder="Toutes les phases" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Toutes les phases</SelectItem>
               {phases.map((p) => (
@@ -153,9 +153,9 @@ export default function ReceiptsTable() {
             </SelectContent>
           </Select>
         </div>
-        <div className="min-w-[130px]">
+        <div className="shrink-0 w-36 md:w-auto md:min-w-[130px]">
           <Select value={filters.payer} onValueChange={(v) => updateFilter("payer", v)}>
-            <SelectTrigger><SelectValue placeholder="Tous les payeurs" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Payeur" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les payeurs</SelectItem>
               {people.map((p) => (
@@ -164,9 +164,9 @@ export default function ReceiptsTable() {
             </SelectContent>
           </Select>
         </div>
-        <div className="min-w-[160px]">
+        <div className="shrink-0 w-40 md:w-auto md:min-w-[160px]">
           <Select value={filters.store} onValueChange={(v) => updateFilter("store", v)}>
-            <SelectTrigger><SelectValue placeholder="Tous les magasins" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Magasin" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les magasins</SelectItem>
               {stores.map((s) => (
@@ -175,25 +175,13 @@ export default function ReceiptsTable() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-1">
-          <Input
-            type="date"
-            className="w-36"
-            value={filters.dateFrom}
-            onChange={(e) => updateFilter("dateFrom", e.target.value)}
-            placeholder="Du"
-          />
+        <div className="shrink-0 flex items-center gap-1">
+          <Input type="date" className="w-36" value={filters.dateFrom} onChange={(e) => updateFilter("dateFrom", e.target.value)} />
           <span className="text-muted-foreground text-sm">→</span>
-          <Input
-            type="date"
-            className="w-36"
-            value={filters.dateTo}
-            onChange={(e) => updateFilter("dateTo", e.target.value)}
-            placeholder="Au"
-          />
+          <Input type="date" className="w-36" value={filters.dateTo} onChange={(e) => updateFilter("dateTo", e.target.value)} />
         </div>
         {(filters.phase !== "all" || filters.payer !== "all" || filters.store !== "all" || filters.dateFrom || filters.dateTo) && (
-          <Button variant="ghost" size="sm" onClick={() => {
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => {
             setFilters({ phase: "all", payer: "all", store: "all", dateFrom: "", dateTo: "" })
             setPage(0)
           }}>
@@ -212,8 +200,49 @@ export default function ReceiptsTable() {
         )}
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border bg-white">
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Chargement…
+          </div>
+        ) : receipts.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">Aucune facture trouvée</div>
+        ) : receipts.map((r) => {
+          const lot = getLotInfo(r)
+          return (
+            <div key={r.id} className="bg-white rounded-xl border px-4 py-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-semibold text-base">{r.stores?.name ?? r.notes ?? "—"}</span>
+                <span className="tabular-nums font-bold text-base shrink-0">{formatCurrency(r.total_amount)}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                <span>{formatDate(r.receipt_date)}</span>
+                {r.people?.name && <span>· {r.people.name}</span>}
+                {r.phases?.name && <span className="truncate max-w-[140px]">· {r.phases.name}</span>}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <StatusBadge status={r.status} />
+                {lot && (
+                  <Badge
+                    style={{
+                      backgroundColor: lot.color ? `${lot.color}20` : undefined,
+                      borderColor: lot.color ?? undefined,
+                      color: lot.color ?? undefined,
+                    }}
+                    className="text-xs border"
+                  >
+                    {lot.name}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border bg-white">
         <Table>
           <TableHeader>
             <TableRow>
@@ -230,8 +259,7 @@ export default function ReceiptsTable() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
-                  Chargement…
+                  <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Chargement…
                 </TableCell>
               </TableRow>
             ) : receipts.length === 0 ? (
@@ -246,16 +274,10 @@ export default function ReceiptsTable() {
                 return (
                   <TableRow key={r.id}>
                     <TableCell className="tabular-nums text-sm">{formatDate(r.receipt_date)}</TableCell>
-                    <TableCell className="font-medium">
-                      {r.stores?.name ?? r.notes ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
-                      {formatCurrency(r.total_amount)}
-                    </TableCell>
+                    <TableCell className="font-medium">{r.stores?.name ?? r.notes ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{formatCurrency(r.total_amount)}</TableCell>
                     <TableCell>{r.people?.name ?? "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
-                      {r.phases?.name ?? "—"}
-                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{r.phases?.name ?? "—"}</TableCell>
                     <TableCell>
                       {lot ? (
                         <Badge
@@ -272,9 +294,7 @@ export default function ReceiptsTable() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <StatusBadge status={r.status} />
-                    </TableCell>
+                    <TableCell><StatusBadge status={r.status} /></TableCell>
                   </TableRow>
                 )
               })

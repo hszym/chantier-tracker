@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { HardHat, LayoutDashboard, Receipt, Users } from "lucide-react"
+import { HardHat } from "lucide-react"
 import Link from "next/link"
+import { DesktopNav, BottomNav } from "@/components/ui/nav"
 
 export default async function DashboardLayout({
   children,
@@ -21,37 +22,16 @@ export default async function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
             <HardHat className="h-5 w-5" />
-            Chantier Tracker
+            <span className="hidden sm:inline">Chantier Tracker</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Tableau de bord
-            </Link>
-            <Link
-              href="/receipts"
-              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Receipt className="h-4 w-4" />
-              Factures
-            </Link>
-            <Link
-              href="/workers"
-              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Users className="h-4 w-4" />
-              Ouvriers
-            </Link>
-          </nav>
-          <div className="ml-auto text-xs text-muted-foreground">{user.email}</div>
+          <DesktopNav />
+          <div className="ml-auto text-xs text-muted-foreground truncate max-w-[160px]">{user.email}</div>
         </div>
       </header>
-      <main className="flex-1 bg-muted/20">
-        <div className="max-w-7xl mx-auto px-4 py-6">{children}</div>
+      <main className="flex-1 bg-muted/20 pb-20 md:pb-0">
+        <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">{children}</div>
       </main>
+      <BottomNav />
     </div>
   )
 }
