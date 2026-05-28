@@ -83,9 +83,9 @@ export default function ReceiptsTable() {
       .select(
         `id, receipt_date, total_amount, status, notes,
          stores(name),
-         people(name),
+         people!paid_by(name),
          phases(name),
-         receipt_lines(lot_id, work_lots!receipt_lines_lot_id_fkey(name, color))`,
+         receipt_lines(lot_id, work_lots!lot_id(name, color))`,
         { count: "exact" }
       )
       .neq("status", "archived")
