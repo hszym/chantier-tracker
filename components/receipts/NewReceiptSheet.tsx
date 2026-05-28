@@ -267,13 +267,11 @@ export default function NewReceiptSheet() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Montant (€) *</label>
               <Input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={form.total_amount}
-                onChange={(e) => setForm((f) => ({ ...f, total_amount: e.target.value }))}
-                required
+                onChange={(e) => setForm((f) => ({ ...f, total_amount: e.target.value.replace(",", ".") }))}
               />
             </div>
           </div>
